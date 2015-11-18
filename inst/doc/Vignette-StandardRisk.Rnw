@@ -1,0 +1,236 @@
+\documentclass[a4paper]{article}
+%\VignetteIndexEntry{StandardRisk}
+\textwidth 16cm \textheight 23cm \evensidemargin 0cm
+\oddsidemargin 0cm \topmargin -2cm
+\parindent 0pt
+\parskip \medskipamount
+
+%-----------------------------------------------------------
+\usepackage[hyperindex=true,pageanchor=true,hyperfigures=true]{hyperref}
+\usepackage{amsmath,amsfonts,latexsym,epsf,graphicx}
+%\usepackage{dsfont}   %%% fuer \N, \R etc
+%\usepackage[dvips]{color}
+%\usepackage{url}
+\usepackage{natbib}
+
+\title{Evaluating hospital performance \\ \texttt{RiskStandard} package}
+\author{Arnout Van Messem and Machteld Varewyck \\ Ghent University}
+
+%----------------------------------------------------------------------------------%
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\SweaveOpts{prefix.string=figures/Vignette}
+
+\maketitle
+
+\section*{Introduction}  
+
+This R-package implements statistical methods for benchmarking clinical care centers based on a binary quality indicator such as 30-day mortality. For each center we provide directly or indirectly standardized risks based on fixed center effects outcome models that incorporate patient-specific baseline covariates to adjust for differential case-mix. The user can choose to apply the Firth correction \citep{firth} in the outcome model to maintain convergence in the presence of very small centers.
+
+The package includes three example datasets: smallCaseMix, with small differences in patient mix across centers, largeCaseMix with large differences in patient mix across centers, and largeCaseMix\_missing which is based on largeCaseMix but where the consciousness level is missing for some patients. Input data must contain for each patient (1) patient-specific covariates to adjust for in the analysis e.g. age, baseline severity, (2) a hospital code where the patient was treated and (3) a binary quality outcome e.g. 30-day mortality. In this document we will illustrate how center performance can be assessed using the implemented R-functions.
+
+We refer the user to \cite{Varewyck} for the theory behind the implemented \texttt{R}-functions.
+
+\section*{Use in \texttt{R}} \label{sec:scenario}
+
+In this section we illustrate the two summary functions and three plot functions of the package. First, install and load the package `RiskStandard':
+
+<<installPackage, eval=FALSE>>=
+install.packages("./RiskStandard_0.0.5.tar.gz", 
+                 repos = NULL, type = "source")
+
+@
+<<loadPackage>>=
+library(RiskStandard)
+@
+
+
+
+
+The dataset largeCaseMix contains for the $n=50\;000$ patients treated in one of the $m=50$ centers:
+\begin{itemize}
+	\item patient-specific covariates: age (continuous), sex (binary) and consciousness level at admission (1=alert, 2=drowsy, 3=unconscious)
+	\item hospital code: center (1 to $m$)
+	\item binary quality outcome: outcome (0=alive, 1=dead)
+\end{itemize}
+Before assessing center performance, we recommend to make some descriptives of the dataset to get an impression of the distribution of patient characteristics across centers (Figure \ref{fig:descr}).
+
+
+<<>>=
+str(largeCaseMix)
+
+m <- length(unique(largeCaseMix$center))
+n <- dim(largeCaseMix)[1]
+centerSize <- as.vector(table(largeCaseMix$center))
+@
+
+<<label=descr,include=FALSE>>=
+layout(matrix(1:4))
+
+# Age
+with(largeCaseMix, 
+     plot(1:m, tapply(age, center, mean), pch = 19,
+          cex = centerSize/n*m, cex.lab = 1.2, ylim = c(60,80), 
+          xlab = "Center",  ylab = "", main = "Mean age per center"))
+with(largeCaseMix, 
+     boxplot(age ~ center, xlab = "Center", ylab = "Age distribution", 
+     cex.lab = 1.2))
+
+# Sex
+with(largeCaseMix,
+     plot(1:m, tapply(sex, center, mean), pch = 19, cex=centerSize/n*m,
+          cex.lab = 1.2, ylim = c(0,1), xlab = 'Center', ylab = "",
+          main= "Percentage women per center"))
+
+# Consciousness
+with(largeCaseMix,
+     plot(1:m, tapply((cons==1), center, mean), pch = 21,
+          cex = centerSize/n*m, cex.lab = 1.2, ylim = c(0,1.1), xlab='Center', 
+          ylab = "", main="Distribution of consciousness level per center"))
+with(largeCaseMix, 
+     points(c(1:m), tapply((cons %in% c(1,2)), center, mean), pch = 19,
+            cex = centerSize/n*m))
+legend("bottomleft", pch = c(21,19), bty='n',
+       legend = c("Alert", "Alert or drowsy"), cex=1.2)
+@
+
+\begin{figure}[h]
+  \centering
+<<descriptives, fig=TRUE, echo=FALSE, width=15, height=25>>=
+<<descr>>
+@
+  \caption{Descriptive plots for patient case-mix across centers. The size of the plot symbol is proportional to the center size.}
+  \label{fig:descr}
+\end{figure}
+
+
+
+\subsection*{standardizeRisks()}
+
+This function estimates the standardized mortality risks. Necessary parameters are 
+\begin{itemize}
+  \item patientCovariates: data frame of patient-specific covariates. Please make sure that categorical covariates are passed as factor, otherwise a linear effect will be assumed in the fitted outcome model ($p$ covariate values for each of the $n$ patients, giving an $n \times p$ data frame)
+	\item center: hospital code (1 value out of $m$ for each of the $n$ patients)
+	\item Y: binary quality outcome (0 or 1 for each of the $n$ patients)
+\end{itemize}
+The input for the parameter `center' can be a character vector with the hospital names which will automatically be used in the output.
+The other function parameters have default values, but can be changed by the user (see \texttt{R}-documentation). By default a Firth corrected outcome regression model is fitted. By default no summary of the fitted model is printed, but it can be asked by adding the argument \texttt{trace = TRUE}. This summary can be useful for checking whether each of the covariates was passed in the correct format.
+
+<<>>=
+indirectRisks <- standardizeRisks(
+  patientCovariates = largeCaseMix[,c('age','sex','cons')],
+  center = largeCaseMix[,'center'], 
+  Y = largeCaseMix[,'outcome'])
+head(indirectRisks)
+@
+Similarly for direct standardization:
+<<eval=FALSE>>=
+directRisks <- standardizeRisks(
+  patientCovariates = largeCaseMix[,c('age','sex','cons')],
+  center = largeCaseMix[,'center'], 
+  Y = largeCaseMix[,'outcome'],
+  method='direct')
+@
+
+When some patients have missing values for a categorical patient covariate such as consciousness level, we offer two ways to handle the missingness. The option \texttt{missing=`completeCase'} (default) performs a complete case analysis, excluding all patients who have missing consciousness. The option \texttt{missing=`dummyCategory'} adds a separate category to the fitted outcome model, allowing for a missing value effect. When some patients have missing values for a continuous patient covariate such as age, the function will perform a complete case analysis, excluding all patients who have missing age. Alternatively, multiple imputation can be considered to handle missingness. Although this method is currently not implemented in the standardizeRisks() function, the user can pass each of the imputed datasets seperately to the function and afterwards average the estimated standardized risks over the different imputations. The variance on the standardized risks can then be obtained by combining the within and between imputation variance as explained in \cite{schaferImp}. The number of observations ($n$) that was used for the analysis can be extracted as an attribute from the function.
+
+<<>>=
+indirectRisks2 <- 
+  standardizeRisks(patientCovariates = largeCaseMix_missing[,c('age','sex','cons')],
+                   center = largeCaseMix_missing[,'center'], 
+                   Y = largeCaseMix_missing[,'outcome'],
+                   method='indirect', missing='completeCase')
+attr(indirectRisks2, "n")
+@
+
+
+\subsection*{labelCenters()}
+
+The output from the \texttt{standardizeRisks()} function can then be used to classify the centers as having `low', `accepted' or `high' mortality risk. 
+
+<<>>=
+labeledCenters <- labelCenters(standardizedRisks = indirectRisks)
+head(labeledCenters)
+@
+
+By default for indirect standardization, centers are classified as having low mortality if the (upper bound of the) $50\%$ confidence interval on the standardized risk is smaller than a consensus value. This clinically relevant boundary is by default set at $-0.05$. Analogously, centers are classified as having high mortality if the (lower bound of the) $50\%$ confidence interval on the standardized risk is larger than the clinically relevant boundary of 0.05.
+For direct standardization the consensus value is by default $0.8 \; \hat{E}(Y)$ for low mortality and $1.2 \; \hat{E}(Y)$ for high mortality.
+Note that the function \texttt{labelCenters()} returns by default $50\%$ confidence intervals in the output, while the function \texttt{standardizeRisks()} gives $95\%$ confidence intervals by default.
+
+The clinically relevant boundaries can be adapted by providing specific values for the parameter lambda in the labelCenters() function. When lambda is a vector of two elements, the first factor determines the consensus value before classifying centers as having low mortality risk, while for high mortality it is the second factor. For example, we can implement a consensus value of $-0.06$ for low mortality and $0.02$ for high mortality as follows:
+
+<<>>=
+labeledCenters2 <- labelCenters(standardizedRisks = indirectRisks, 
+                                lambda=c(low = 0.06, high = 0.02))
+head(labeledCenters2)
+@
+
+\subsection*{plotRisks()}
+
+For indirectly standardized outcomes, this function generates a descriptive scatterplot of the observed against the expected risk under the average care level for patients of that center (Figure \ref{fig:plotRisks}). 
+<<label=plotRisks,include=FALSE>>=
+plotRisks(standardizedRisks = indirectRisks, 
+          labeledCenters = labeledCenters)
+@
+
+\begin{figure}[h]
+  \centering
+<<fig=TRUE, echo=FALSE, width=10, height=8>>=
+<<plotRisks>>
+@
+  \caption{Plot the observed versus the expected risk under the average care level for patients of that center. The full line represents the best local fit through the points (\texttt{loess()} function in \texttt{R}), the dashed line represents the first bisector and 'M' denotes the estimated overall mortality risk $\hat{E}(Y)$.}
+	\label{fig:plotRisks}
+\end{figure}
+
+It illustrates how much the observed risk in each center deviates from the expected risk under the average care level for patients of that center. Large deviation is expected when differences in patient mix are large among centers and is visualised by large deviations from the first bisector. The character `M' denotes the estimated overall mortality risk $\hat{E}(Y)$.
+
+For directly standardized outcomes, this function generates a descriptive scatterplot of the observed against the estimated directly standardized risk for each center. 
+
+
+\subsection*{plotCenterLabels()}
+
+Center performance classification can be visualised using the estimated standardized risk and variance per center from the output of \texttt{standardizeRisks()} and classification labels from \texttt{labelCenters()} (Figure \ref{fig:plotCenterLabels}). 
+
+<<plotCenterLabels>>=
+plotCenterLabels(standardizedRisks = indirectRisks,
+                 labeledCenters = labeledCenters)
+@
+
+\begin{figure}[h]
+  \centering
+<<fig=TRUE, echo=FALSE, width=10, height=8>>=
+<<plotCenterLabels>>
+@
+  \caption{Plot the estimated directly standardized risk with $50\%$ confidence limits per center.}
+	\label{fig:plotCenterLabels}
+\end{figure}
+
+Centers that are classified as having low mortality risk are indicated by green triangles (on the left) and their confidence interval (by default $50\%$) lies completely below the clinically relevant boundary. Similarly, centers classified with high mortality risk are indicated by red triangles (on the right) and have their confidence interval lying completely above the clinically relevant boundary. Of course, larger centers have narrower estimated confidence intervals than smaller centers.
+
+
+\subsection*{funnelPlot()}
+
+The funnelplot is an internationally recommended plot for comparing institutional performance \citep{spiegelhalter} (Figure \ref{fig:funnelPlot}). The estimated standardized risks are plotted against a measure of precision (default is center size). Care centers with an estimated standardized risk lying outside the $95\%$ control limits are flagged as outlying centers. A horizontal line is drawn (at the displayed value), for indirect standardization this is at the average of the indirectly standardized excess risks over all centers while for direct standardization this is at the overall mortality risk $\hat{E}(Y)$.
+
+<<funnelPlot>>=
+funnelPlot(standardizedRisks = indirectRisks)
+@
+
+\begin{figure}[h]
+  \centering
+<<fig=TRUE, echo=FALSE, width=10, height=8>>=
+<<funnelPlot>>
+@
+	\caption{Funnelplot for the estimated indirectly standardized risk per center. The horizontal line represents the average over all centers of the indirectly standardized risks.}
+	\label{fig:funnelPlot}
+\end{figure}
+
+%-----------------------------------------------------------------------------------------%
+\bibliographystyle{apa}
+\bibliography{bibPackage}
+
+%-----------------------------------------------------------------------------------------%
+
+
+\end{document}
