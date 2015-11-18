@@ -1,0 +1,13 @@
+Package: RiskStandard
+Type: Package
+Title: Package for benchmarking clinical care centers
+Version: 0.0.6
+Date: 2015-02-26
+Author: Arnout Van Messem, Machteld Varewyck
+Maintainer: Tobias Verbeke <tobias.verbeke@openanalytics.eu>
+Description: statistical methods for benchmarking clinical care centers
+    based on a binary quality indicator
+License: GPL-3
+LazyData: yes
+Depends: R (>= 2.10), brglm
+Packaged: 2015-02-26 21:44:50 UTC; tverbeke

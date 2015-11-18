@@ -1,0 +1,21 @@
+0.0.6 (2015-02-26)
+    o trace argument for standardizeRisks; the function now also keeps track of the number of observations
+      and makes use of the original center labels
+    o include vignette
+0.0.5 (2015-02-06)
+    o update datasets and largeCaseMix_missing data
+    o updates to standardizeRisks
+    o updates to funnelPlot
+0.0.4
+    o lazy data loading
+    o small examples added to dataset help pages    
+0.0.3 (2014-12-15)
+    o update datasets
+    o fixes in standardizeRisks
+0.0.2 (2014-12-13)
+    o add simulateData
+    o add examples for all functions
+    o document datasets
+    o miscellaneous improvements
+0.0.1 (2014-12-12)
+    o initial version
