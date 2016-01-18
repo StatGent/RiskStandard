@@ -48,7 +48,7 @@ A detailed description of all functions and datasets can be found in the vignett
 ## Reference to the package
 
 Please use the following reference when referencing to the RiskStandard package:
-> Varewyck, M. and Van Messem, A. (2015). RiskStandard. `https://github.ugent.be/StatGent/RiskStandard`
+> Varewyck, M. and Van Messem, A. (2015). RiskStandard. `https://github.com/StatGent/RiskStandard`
 
 DOI: [![DOI](https://zenodo.org/badge/19443/StatGent/RiskStandard.svg)](https://zenodo.org/badge/latestdoi/19443/StatGent/RiskStandard)
 
